@@ -2,299 +2,465 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>PhoneMonitor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitor</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
 
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root {
+    --bg: #090909;
+    --surface: #111111;
+    --border: #1e1e1e;
+    --accent: #00ff88;
+    --accent2: #ff3c3c;
+    --text: #e8e8e8;
+    --muted: #444;
+  }
 
-:root{
-  --bg:#07090c;
-  --panel:#0c1017;
-  --border:#18222e;
-  --accent:#00e5ff;
-  --green:#00ff9d;
-  --red:#ff3b5c;
-  --text:#b8ccd8;
-  --muted:#3a5060;
-}
+  * { margin: 0; padding: 0; box-sizing: border-box; }
 
-body{
-  background:var(--bg);
-  color:var(--text);
-  font-family:'JetBrains Mono',monospace;
-  height:100vh;
-  display:grid;
-  grid-template-rows:44px 1fr;
-  grid-template-columns:180px 1fr 200px;
-  overflow:hidden;
-}
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
 
-/* ── Шапка ── */
-header{
-  grid-column:1/-1;
-  background:var(--panel);
-  border-bottom:1px solid var(--border);
-  display:flex;
-  align-items:center;
-  padding:0 16px;
-  gap:14px;
-}
-.logo{font-family:'Syne',sans-serif;font-size:14px;letter-spacing:.1em;color:var(--accent)}
-.logo b{color:var(--green)}
-.dot{width:7px;height:7px;border-radius:50%;background:var(--muted);transition:all .3s;flex-shrink:0}
-.dot.on{background:var(--green);box-shadow:0 0 6px var(--green)}
-.dot.off{background:var(--red);box-shadow:0 0 6px var(--red)}
-#hStatus{font-size:11px;color:var(--muted);flex:1}
-#fpsBadge{font-size:10px;border:1px solid var(--border);padding:2px 7px;border-radius:3px;color:var(--muted)}
+  /* Сканлайн эффект */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
 
-/* ── Боковые панели ── */
-.side{
-  background:var(--panel);
-  border-right:1px solid var(--border);
-  padding:14px 10px;
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-  overflow-y:auto;
-}
-.side.right{border-right:none;border-left:1px solid var(--border)}
-.stitle{font-size:9px;letter-spacing:.15em;color:var(--muted);text-transform:uppercase;margin:6px 0 2px}
-.irow{display:flex;justify-content:space-between;font-size:10px;padding:4px 0;border-bottom:1px solid var(--border)}
-.irow span:last-child{color:var(--accent)}
+  header {
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+  }
 
-.btn{
-  width:100%;padding:8px 10px;
-  background:transparent;
-  border:1px solid var(--border);
-  border-radius:5px;
-  color:var(--text);
-  font-family:'JetBrains Mono',monospace;
-  font-size:11px;
-  cursor:pointer;
-  text-align:left;
-  display:flex;align-items:center;gap:7px;
-  transition:border-color .15s,color .15s,background .15s;
-}
-.btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,229,255,.04)}
-.btn:active{background:rgba(0,229,255,.1)}
-.btn .i{width:18px;text-align:center;font-size:14px}
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
 
-#textInput{
-  width:100%;background:var(--bg);
-  border:1px solid var(--border);border-radius:5px;
-  color:var(--text);font-family:'JetBrains Mono',monospace;font-size:11px;
-  padding:7px;resize:none;height:54px;outline:none;
-  transition:border-color .15s;
-}
-#textInput:focus{border-color:var(--accent)}
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
 
-.hr{height:1px;background:var(--border);margin:4px 0}
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+  }
 
-/* ── Экран ── */
-.viewport{
-  background:#000;
-  position:relative;
-  display:flex;align-items:center;justify-content:center;
-  overflow:hidden;cursor:crosshair;
-  user-select:none;
-}
-#screen{max-width:100%;max-height:100%;object-fit:contain;display:none;pointer-events:none}
+  .dot.online { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse 2s infinite; }
+  .dot.offline { background: var(--accent2); }
 
-.nosig{
-  position:absolute;inset:0;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:10px;color:var(--muted);font-size:11px;
-}
-.nosig svg{width:44px;height:44px;opacity:.25}
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
 
-/* Тап индикатор */
-@keyframes tap{0%{transform:scale(1);opacity:1}100%{transform:scale(3.5);opacity:0}}
-.tapring{
-  position:fixed;width:18px;height:18px;border-radius:50%;
-  border:2px solid var(--accent);pointer-events:none;
-  transform:translate(-50%,-50%);
-  animation:tap .35s ease-out forwards;
-}
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 24px;
+    gap: 24px;
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+  }
 
-/* Линия свайпа */
-#swipeCanvas{position:absolute;inset:0;pointer-events:none;display:none}
+  /* Экран телефона */
+  .screen-wrap {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
 
-/* scrollbar */
-.side::-webkit-scrollbar{width:3px}
-.side::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+  .screen-wrap::before {
+    content: 'LIVE';
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.2em;
+    z-index: 10;
+    background: rgba(0,0,0,0.7);
+    padding: 3px 8px;
+    border: 1px solid var(--accent);
+  }
+
+  .fps-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    z-index: 10;
+    background: rgba(0,0,0,0.7);
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+  }
+
+  #screen {
+    width: 100%;
+    display: block;
+    min-height: 200px;
+    background: #000;
+    object-fit: contain;
+  }
+
+  .no-signal {
+    width: 100%;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+  }
+
+  .no-signal-icon {
+    font-size: 48px;
+    opacity: 0.2;
+  }
+
+  /* Кнопки управления */
+  .controls {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+  }
+
+  .btn-start {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 16px 32px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .btn-start:hover { background: #00ffaa; transform: translateY(-1px); }
+  .btn-start:active { transform: translateY(0); }
+  .btn-start:disabled { background: var(--muted); color: #222; cursor: not-allowed; transform: none; }
+
+  .btn-start.loading {
+    background: #004422;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    cursor: wait;
+  }
+
+  .nav-buttons {
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn-nav {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+  }
+
+  .btn-nav:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-nav:active { background: #1a1a1a; }
+
+  /* Лог */
+  .log {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 16px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.8;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+
+  .log-line { display: flex; gap: 12px; }
+  .log-time { color: #333; min-width: 60px; }
+  .log-msg.ok { color: var(--accent); }
+  .log-msg.err { color: var(--accent2); }
+  .log-msg.info { color: var(--muted); }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 12px 20px;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.2s;
+    pointer-events: none;
+    z-index: 999;
+    border-radius: 2px;
+  }
+
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.ok { border-color: var(--accent); color: var(--accent); }
+  .toast.err { border-color: var(--accent2); color: var(--accent2); }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">PHONE<b>MONITOR</b></div>
-  <div class="dot" id="dot"></div>
-  <div id="hStatus">Ожидание...</div>
-  <div id="fpsBadge">-- fps</div>
+  <div class="logo">⬡ Monitor</div>
+  <div class="status-pill">
+    <div class="dot" id="dot"></div>
+    <span id="status-text">Проверка...</span>
+  </div>
 </header>
 
-<!-- Левая панель -->
-<div class="side">
-  <div class="stitle">Статус</div>
-  <div class="irow"><span>Телефон</span><span id="iPhone">—</span></div>
-  <div class="irow"><span>Стрим</span><span id="iStream">—</span></div>
-  <div class="irow"><span>Кадров</span><span id="iFrames">0</span></div>
+<main>
+  <div class="screen-wrap" id="screen-wrap">
+    <div class="fps-badge" id="fps-badge">-- fps</div>
+    <div class="no-signal" id="no-signal">
+      <div class="no-signal-icon">📵</div>
+      <div>НЕТ СИГНАЛА</div>
+      <div style="font-size:10px;">Нажми ЗАПУСТИТЬ чтобы начать</div>
+    </div>
+    <img id="screen" style="display:none;" alt="screen">
+  </div>
 
-  <div style="margin-top:auto">
-    <div class="stitle">Клавиши</div>
-    <div style="font-size:10px;color:var(--muted);line-height:2">
-      <b style="color:var(--text)">Esc</b> Назад<br>
-      <b style="color:var(--text)">H</b> Домой<br>
-      <b style="color:var(--text)">R</b> Последние<br>
-      <b style="color:var(--text)">↑↓←→</b> Свайп
+  <div class="controls">
+    <button class="btn-start" id="btn-start" onclick="startCapture()">
+      <span id="btn-icon">▶</span>
+      <span id="btn-label">ЗАПУСТИТЬ</span>
+    </button>
+    <div class="nav-buttons">
+      <button class="btn-nav" onclick="sendCmd('back')">← назад</button>
+      <button class="btn-nav" onclick="sendCmd('home')">⌂</button>
+      <button class="btn-nav" onclick="sendCmd('recents')">▣</button>
     </div>
   </div>
-</div>
 
-<!-- Экран телефона -->
-<div class="viewport" id="vp">
-  <img id="screen" src="/stream" alt="">
-  <div class="nosig" id="nosig">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
-      <rect x="5" y="2" width="14" height="20" rx="2.5"/>
-      <line x1="9" y1="7" x2="15" y2="7"/><circle cx="12" cy="17" r="1.2"/>
-    </svg>
-    <span>Нет сигнала</span>
-    <span style="font-size:9px;opacity:.6">Запусти приложение на телефоне</span>
+  <div class="log" id="log">
+    <div class="log-line"><span class="log-time">--:--:--</span><span class="log-msg info">Ожидание подключения телефона...</span></div>
   </div>
-  <canvas id="swipeCanvas"></canvas>
-</div>
+</main>
 
-<!-- Правая панель -->
-<div class="side right">
-  <div class="stitle">Навигация</div>
-  <button class="btn" onclick="cmd({type:'back'})"><span class="i">←</span>Назад</button>
-  <button class="btn" onclick="cmd({type:'home'})"><span class="i">⬜</span>Домой</button>
-  <button class="btn" onclick="cmd({type:'recents'})"><span class="i">▣</span>Последние</button>
-
-  <div class="hr"></div>
-  <div class="stitle">Свайпы</div>
-  <button class="btn" onclick="qswipe('up')"><span class="i">↑</span>Вверх</button>
-  <button class="btn" onclick="qswipe('down')"><span class="i">↓</span>Вниз</button>
-  <button class="btn" onclick="qswipe('left')"><span class="i">←</span>Влево</button>
-  <button class="btn" onclick="qswipe('right')"><span class="i">→</span>Вправо</button>
-
-  <div class="hr"></div>
-  <div class="stitle">Текст</div>
-  <textarea id="textInput" placeholder="Введи текст..."></textarea>
-  <button class="btn" onclick="sendText()" style="border-color:var(--accent);color:var(--accent)">
-    <span class="i">⌨</span>Отправить
-  </button>
-</div>
+<div class="toast" id="toast"></div>
 
 <script>
-// ── WebSocket ─────────────────────────────────────────────────────────────────
-let ws, swipeStart=null, totalFrames=0, fps=0, fpsTimer=0;
+  let streaming = false;
+  let frameCount = 0;
+  let lastFpsTime = Date.now();
+  let phoneOnline = false;
 
-function connectWS(){
-  const proto=location.protocol==='https:'?'wss':'ws';
-  ws=new WebSocket(`${proto}://${location.host}/ws/browser`);
-  ws.onclose=()=>setTimeout(connectWS,2000);
-}
-connectWS();
-
-function cmd(obj){
-  if(ws&&ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify(obj));
-}
-
-// ── Статус ────────────────────────────────────────────────────────────────────
-function pollStatus(){
-  fetch('/status').then(r=>r.json()).then(s=>{
-    const on=s.phone_control;
-    document.getElementById('dot').className='dot '+(on?'on':'off');
-    document.getElementById('hStatus').textContent=on?'Телефон подключён':'Телефон не подключён';
-    document.getElementById('iPhone').textContent=on?'online':'offline';
-    document.getElementById('iStream').textContent=s.streaming?'идёт':'нет';
-
-    const sc=document.getElementById('screen');
-    const ns=document.getElementById('nosig');
-    if(s.streaming){sc.style.display='block';ns.style.display='none';}
-    else{sc.style.display='none';ns.style.display='flex';}
-  }).catch(()=>{});
-}
-setInterval(pollStatus,2000);pollStatus();
-
-// ── FPS ───────────────────────────────────────────────────────────────────────
-document.getElementById('screen').addEventListener('load',()=>{
-  totalFrames++;fps++;
-  const now=Date.now();
-  if(now-fpsTimer>=1000){
-    document.getElementById('fpsBadge').textContent=fps+' fps';
-    document.getElementById('iFrames').textContent=totalFrames;
-    fps=0;fpsTimer=now;
+  // ── Поллинг кадров ──────────────────────────────────
+  function pollFrames() {
+    if (!streaming) return;
+    const img = document.getElementById('screen');
+    const url = '/latest.jpg?t=' + Date.now();
+    const tmp = new Image();
+    tmp.onload = () => {
+      img.src = url;
+      img.style.display = 'block';
+      document.getElementById('no-signal').style.display = 'none';
+      frameCount++;
+    };
+    tmp.src = url;
+    setTimeout(pollFrames, 66); // 15fps
   }
-});
 
-// ── Тап / свайп мышью ────────────────────────────────────────────────────────
-const vp=document.getElementById('vp');
-const sc=document.getElementById('screen');
+  // ── FPS счётчик ──────────────────────────────────────
+  setInterval(() => {
+    const now = Date.now();
+    const fps = Math.round(frameCount / ((now - lastFpsTime) / 1000));
+    document.getElementById('fps-badge').textContent = fps + ' fps';
+    frameCount = 0;
+    lastFpsTime = now;
+  }, 2000);
 
-function relCoords(e){
-  const r=sc.getBoundingClientRect();
-  return{x:(e.clientX-r.left)/r.width, y:(e.clientY-r.top)/r.height};
-}
-
-vp.addEventListener('mousedown',e=>{
-  if(e.target!==vp&&e.target!==sc) return;
-  const rc=relCoords(e);
-  swipeStart={cx:e.clientX,cy:e.clientY,rx:rc.x,ry:rc.y};
-  e.preventDefault();
-});
-
-vp.addEventListener('mouseup',e=>{
-  if(!swipeStart) return;
-  const dx=e.clientX-swipeStart.cx, dy=e.clientY-swipeStart.cy;
-  const dist=Math.hypot(dx,dy);
-  const rc=relCoords(e);
-  if(dist<8){
-    cmd({type:'tap',x:swipeStart.rx,y:swipeStart.ry});
-    showTap(e.clientX,e.clientY);
-  } else {
-    cmd({type:'swipe',x:swipeStart.rx,y:swipeStart.ry,x2:rc.x,y2:rc.y});
+  // ── Статус телефона ──────────────────────────────────
+  async function checkStatus() {
+    try {
+      const r = await fetch('/status');
+      const d = await r.json();
+      phoneOnline = d.online;
+      const dot = document.getElementById('dot');
+      const txt = document.getElementById('status-text');
+      if (d.online) {
+        dot.className = 'dot online';
+        txt.textContent = 'Телефон онлайн';
+      } else {
+        dot.className = 'dot offline';
+        txt.textContent = 'Телефон офлайн';
+      }
+    } catch(e) {
+      document.getElementById('dot').className = 'dot';
+      document.getElementById('status-text').textContent = 'Сервер недоступен';
+    }
   }
-  swipeStart=null;
-});
 
-function showTap(x,y){
-  const el=document.createElement('div');
-  el.className='tapring';
-  el.style.cssText=`left:${x}px;top:${y}px`;
-  document.body.appendChild(el);
-  setTimeout(()=>el.remove(),380);
-}
+  setInterval(checkStatus, 3000);
+  checkStatus();
 
-function qswipe(dir){
-  const m={
-    up:   {x:.5,y:.8,x2:.5,y2:.15},
-    down: {x:.5,y:.15,x2:.5,y2:.8},
-    left: {x:.85,y:.5,x2:.15,y2:.5},
-    right:{x:.15,y:.5,x2:.85,y2:.5},
-  };
-  cmd({type:'swipe',...m[dir]});
-}
+  // ── Запустить стриминг ───────────────────────────────
+  async function startCapture() {
+    const btn = document.getElementById('btn-start');
+    const icon = document.getElementById('btn-icon');
+    const label = document.getElementById('btn-label');
 
-function sendText(){
-  const v=document.getElementById('textInput').value.trim();
-  if(v){cmd({type:'text',value:v});document.getElementById('textInput').value='';}
-}
+    btn.disabled = true;
+    btn.classList.add('loading');
+    icon.textContent = '⟳';
+    label.textContent = 'ЗАПУСК...';
 
-// ── Горячие клавиши ───────────────────────────────────────────────────────────
-document.addEventListener('keydown',e=>{
-  if(document.activeElement===document.getElementById('textInput')) return;
-  const map={Escape:'back',h:'home',H:'home',r:'recents',R:'recents',
-    ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right'};
-  const a=map[e.key];
-  if(!a) return;
-  if(['up','down','left','right'].includes(a)) qswipe(a);
-  else cmd({type:a});
-  e.preventDefault();
-});
+    addLog('Отправляю команду на телефон...', 'info');
+
+    try {
+      const r = await fetch('/start', { method: 'POST' });
+      const d = await r.json();
+
+      if (d.ok) {
+        addLog('Команда отправлена — телефон открывает диалог', 'ok');
+        showToast('Команда отправлена!', 'ok');
+
+        // Даём время на диалог (~1.5 сек) потом начинаем показывать кадры
+        setTimeout(() => {
+          streaming = true;
+          pollFrames();
+          icon.textContent = '■';
+          label.textContent = 'СТОП';
+          btn.classList.remove('loading');
+          btn.disabled = false;
+          btn.onclick = stopCapture;
+          addLog('Стриминг запущен', 'ok');
+        }, 1500);
+      } else {
+        addLog('Ошибка: ' + (d.error || 'нет ответа'), 'err');
+        showToast(d.error || 'Телефон не подключён', 'err');
+        resetBtn();
+      }
+    } catch(e) {
+      addLog('Ошибка соединения с сервером', 'err');
+      showToast('Сервер недоступен', 'err');
+      resetBtn();
+    }
+  }
+
+  function stopCapture() {
+    streaming = false;
+    const img = document.getElementById('screen');
+    img.style.display = 'none';
+    document.getElementById('no-signal').style.display = 'flex';
+    document.getElementById('fps-badge').textContent = '-- fps';
+    addLog('Стриминг остановлен', 'info');
+    resetBtn();
+  }
+
+  function resetBtn() {
+    const btn = document.getElementById('btn-start');
+    btn.disabled = false;
+    btn.classList.remove('loading');
+    btn.onclick = startCapture;
+    document.getElementById('btn-icon').textContent = '▶';
+    document.getElementById('btn-label').textContent = 'ЗАПУСТИТЬ';
+  }
+
+  // ── Команды управления ───────────────────────────────
+  async function sendCmd(type, extra = {}) {
+    try {
+      await fetch('/cmd', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({type, ...extra})
+      });
+    } catch(e) {}
+  }
+
+  // ── Тап по экрану ────────────────────────────────────
+  document.getElementById('screen').addEventListener('click', (e) => {
+    const rect = e.target.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    sendCmd('tap', {x, y});
+  });
+
+  // ── Лог ─────────────────────────────────────────────
+  function addLog(msg, type = 'info') {
+    const log = document.getElementById('log');
+    const now = new Date();
+    const t = now.toTimeString().slice(0,8);
+    const line = document.createElement('div');
+    line.className = 'log-line';
+    line.innerHTML = `<span class="log-time">${t}</span><span class="log-msg ${type}">${msg}</span>`;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  // ── Toast ────────────────────────────────────────────
+  function showToast(msg, type = 'ok') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + type;
+    setTimeout(() => t.className = 'toast', 2500);
+  }
 </script>
 </body>
 </html>
