@@ -1,2 +1,5 @@
 flask
 flask-sock
+fastapi
+uvicorn
+python-multipart
