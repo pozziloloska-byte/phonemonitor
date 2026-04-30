@@ -1,101 +1,91 @@
-#!/usr/bin/env python3
-import threading
-import time
+import asyncio
 import os
-from flask import Flask, Response, request
-from flask_sock import Sock
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi.responses import HTMLResponse, Response
+from fastapi.staticfiles import StaticFiles
+import uvicorn
 
-app = Flask(__name__)
-sock = Sock(app)
+app = FastAPI()
 
-latest_frame = None
-frame_lock   = threading.Lock()
-frame_event  = threading.Event()
+# Все подключённые WebSocket клиенты (телефоны)
+connected_phones: list[WebSocket] = []
 
-phone_ws   = None
-phone_lock = threading.Lock()
+# Последний кадр с телефона
+last_frame: bytes = b""
 
-@app.route('/frame', methods=['POST'])
-def receive_frame():
-    global latest_frame
-    data = request.get_data()
-    if data:
-        with frame_lock:
-            latest_frame = data
-        frame_event.set()
-        frame_event.clear()
-    return '', 204
 
-def mjpeg_generator():
-    while True:
-        frame_event.wait(timeout=2.0)
-        with frame_lock:
-            frame = latest_frame
-        if frame:
-            yield (
-                b'--frame\r\n'
-                b'Content-Type: image/jpeg\r\n\r\n' +
-                frame + b'\r\n'
-            )
-        else:
-            time.sleep(0.05)
+@app.post("/frame")
+async def receive_frame(request: Request):
+    global last_frame
+    last_frame = await request.body()
+    return Response(status_code=200)
 
-@app.route('/stream')
-def stream():
-    return Response(
-        mjpeg_generator(),
-        mimetype='multipart/x-mixed-replace; boundary=frame',
-        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'}
-    )
 
-@sock.route('/ws/browser')
-def ws_browser(ws):
+@app.get("/latest.jpg")
+async def get_frame():
+    if not last_frame:
+        return Response(status_code=204)
+    return Response(content=last_frame, media_type="image/jpeg")
+
+
+@app.websocket("/ws/commands")
+async def ws_commands(websocket: WebSocket):
+    await websocket.accept()
+    connected_phones.append(websocket)
     try:
         while True:
-            msg = ws.receive(timeout=30)
-            if msg is None:
-                break
-            with phone_lock:
-                p = phone_ws
-            if p:
-                try:
-                    p.send(msg)
-                except Exception:
-                    pass
-    except Exception:
-        pass
+            # Держим соединение живым, читаем пинги
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        connected_phones.remove(websocket)
 
-@sock.route('/ws/commands')
-def ws_phone(ws):
-    global phone_ws
-    with phone_lock:
-        phone_ws = ws
-    print("[+] Телефон подключён")
-    try:
-        while True:
-            msg = ws.receive(timeout=60)
-            if msg is None:
-                break
-    except Exception:
-        pass
-    finally:
-        with phone_lock:
-            phone_ws = None
-        print("[-] Телефон отключился")
 
-@app.route('/status')
-def status():
-    return {
-        'phone_control': phone_ws is not None,
-        'streaming':     latest_frame is not None,
-    }
+@app.post("/start")
+async def start_capture():
+    """Кнопка на сайте → отправляем команду на все подключённые телефоны"""
+    if not connected_phones:
+        return {"ok": False, "error": "Телефон не подключён"}
+    
+    dead = []
+    for phone in connected_phones:
+        try:
+            await phone.send_text('{"type":"start_capture"}')
+        except Exception:
+            dead.append(phone)
+    
+    for d in dead:
+        connected_phones.remove(d)
+    
+    return {"ok": True, "sent_to": len(connected_phones)}
 
-@app.route('/')
-def index():
-    with open('index.html', 'r', encoding='utf-8') as f:
-        return f.read()
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8080))
-    print(f"  PhoneMonitor запущен на порту {port}")
-    app.run(host='0.0.0.0', port=port, threaded=True)
+@app.post("/cmd")
+async def send_command(request: Request):
+    """Тап/свайп/назад/домой с сайта → на телефон"""
+    body = await request.json()
+    dead = []
+    for phone in connected_phones:
+        try:
+            import json
+            await phone.send_text(json.dumps(body))
+        except Exception:
+            dead.append(phone)
+    for d in dead:
+        connected_phones.remove(d)
+    return {"ok": True}
+
+
+@app.get("/status")
+async def status():
+    return {"online": len(connected_phones) > 0, "phones": len(connected_phones)}
+
+
+@app.get("/")
+async def index():
+    with open("index.html", "r", encoding="utf-8") as f:
+        return HTMLResponse(f.read())
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
